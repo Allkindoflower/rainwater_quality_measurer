@@ -7,13 +7,13 @@ print("Welcome to the rainwater quality checker! IMPORTANT: THIS ADVICE SHOULDN'
 "ALWAYS DO YOUR RESEARCH BEFORE USING RAINWATER FOR CLEANING OR CONSUMPTION! THIS PROGRAM ALSO ACCESSES YOUR DEVICE'S IP ADDRESS TO LOCATE YOUR CITY, BUT DOESN'T UPLOAD OR STORE THEM")
 
 def locate_ip():
-    g = geocoder.ip('me')
+    g = geocoder.ip("me")
     city_guess = g.city.lower()
     return city_guess
 
 def guess_city(city_guess):
     city_confirmation = input(f"Is this your city(y/N)): {city_guess} ")
-    if city_confirmation.lower() in ("y","yes", "yeah"):
+    if city_confirmation.lower() in ("y","yes", "yessir", "yeah"):
         confirmed_city = city_guess      
     elif city_confirmation.lower() in ("n", "no", "nosir", "nein"):
         confirmed_city = input("Please enter the city you're in(all lowercase): ")
@@ -24,10 +24,10 @@ def guess_city(city_guess):
 
 def get_air_quality(confirmed_city):
 
-    API = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
+    air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
 
     try:
-        response = requests.get(API)
+        response = requests.get(air_quality_api)
         data = response.json()
     except requests.exceptions.ConnectionError:
         print("A connection error has occured, please check your internet connection and try again")
@@ -35,23 +35,59 @@ def get_air_quality(confirmed_city):
     except requests.exceptions.ConnectTimeout:
         print("Connection timed out, please try again later.")
         sys.exit(3)
-    if 'data' in data and 'aqi' in data['data'] and isinstance(data['data']['aqi'], int) :
-        air_quality_index = data['data']['aqi']
+    if "data" in data and "aqi" in data["data"] and isinstance(data["data"]["aqi"], int) :
+        air_quality_index = data["data"]["aqi"]
         return air_quality_index
     else:
         print("Failed to fetch data due to a change in the incoming data stream, please wait for a patch from the author")
         sys.exit(4)
+
+
+def get_humidity(confirmed_city):
+
+    general_weather_api = f"https://wttr.in/{confirmed_city}?format=j1"
+
+    try:
+        response = requests.get(general_weather_api)
+        data = response.json()
+        try:
+            humidity = int(data["current_condition"][0]["humidity"])
+            return humidity
+        except ValueError:
+            print("Something went wrong when getting humidity information, please try again later.")
+            sys.exit(5)
+    except requests.exceptions.ConnectionError:
+        print("A connection error has occured, please check your internet connection and try again")
+        sys.exit(2)
+    except requests.exceptions.ConnectTimeout:
+        print("Connection timed out, please try again later.")
+        sys.exit(3)
+    
+
+# another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
+def distance_from_coast():
+    ...
+
+def get_altitude(confirmed_city):
+    g = geocoder.osm(confirmed_city)
+    lat, lon = g.latlng
+    altitude_api = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
+    response = requests.get(altitude_api)
+    data = response.json()
+    altitude = data["elevation"][0]
+    return altitude
 
 def guess_rainwater_quality(air_quality_index):
     if 0 <= air_quality_index <= 25:
         print("Safe, may be consumed after filtering and boiling.")
     elif 26 <= air_quality_index <= 50:
         print("Reasonable, not very safe to drink, you may filter it and water your plants.")
-    elif air_quality_index > 50:
+    elif 50 <= air_quality_index <= 100:
+        print("Danger zone, consuming it even with filtering is not recommended, after careful filtering you may use it to water your plants or flush your toilet.")
+    elif air_quality_index > 100:
         print("Unsafe. Don't touch it with even a 2-meter stick.")
     else:
         print("Something went wrong, please try again later.")
-
 
 def main():
     city_guess = locate_ip()
