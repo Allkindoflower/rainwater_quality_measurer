@@ -69,31 +69,37 @@ def distance_from_coast():
     ...
 
 def get_altitude(confirmed_city):
-    g = geocoder.osm(confirmed_city)
-    lat, lon = g.latlng
+    try:
+        g = geocoder.osm(confirmed_city)
+        lat, lon = g.latlng
+    except Exception as e:
+        print(e)
+
     altitude_api = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
     response = requests.get(altitude_api)
     data = response.json()
     altitude = data["elevation"][0]
     return altitude
 
-def guess_rainwater_quality(air_quality_index):
-    if 0 <= air_quality_index <= 25:
-        print("Safe, may be consumed after filtering and boiling.")
-    elif 26 <= air_quality_index <= 50:
-        print("Reasonable, not very safe to drink, you may filter it and water your plants.")
-    elif 50 <= air_quality_index <= 100:
-        print("Danger zone, consuming it even with filtering is not recommended, after careful filtering you may use it to water your plants or flush your toilet.")
-    elif air_quality_index > 100:
-        print("Unsafe. Don't touch it with even a 2-meter stick.")
-    else:
-        print("Something went wrong, please try again later.")
+def guess_rainwater_quality(air_quality_index): # placeholder for a coherent scoring system
+    # if 0 <= air_quality_index <= 25:
+    #     print("Safe, may be consumed after filtering and boiling.")
+    # elif 26 <= air_quality_index <= 50:
+    #     print("Reasonable, not very safe to drink, you may filter it and water your plants.")
+    # elif 50 <= air_quality_index <= 100:
+    #     print("Danger zone, consuming it even with filtering is not recommended, after careful filtering you may use it to water your plants or flush your toilet.")
+    # elif air_quality_index > 100:
+    #     print("Unsafe. Don't touch it with even a 2-meter stick.")
+    # else:
+    #     print("Something went wrong, please try again later.")
+    pass
 
 def main():
     city_guess = locate_ip()
     confirmed_city = guess_city(city_guess)
     air_quality_index = get_air_quality(confirmed_city)
-    print(air_quality_index)
-    guess_rainwater_quality(air_quality_index)
+    humidity = get_humidity(confirmed_city)
+    altitude = get_altitude(confirmed_city)
+    guess_rainwater_quality(air_quality_index, humidity, altitude) # Incomplete, need precise scoring system
 
 main()
