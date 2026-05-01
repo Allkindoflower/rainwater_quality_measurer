@@ -40,7 +40,7 @@ This tool pulls live data from multiple sources and combines them into a single 
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/yourusername/rainwater-quality-checker.git
+git clone https://github.com/yourusername/rainwater_quality_measurer.git
 cd rainwater-quality-checker
 pip install -r requirements.txt
 ```
