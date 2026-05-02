@@ -21,7 +21,7 @@ def handle_network_issues(function):
 @handle_network_issues
 def locate_ip():
     g = geocoder.ip("me")
-    city_guess = g.city.lower()
+    city_guess = g.city
     return city_guess
 
 def guess_city(city_guess):
