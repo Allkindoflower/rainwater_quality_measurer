@@ -1,22 +1,9 @@
 import geocoder
 import sys
 import requests
+from welcome_message import welcome_user
+from utils import handle_network_issues
 
-
-print("Welcome to the rainwater quality checker! IMPORTANT: THIS ADVICE SHOULDN'T BE TAKEN VERY SERIOUSLY, THEY ARE ONLY GUESSTIMATES, " \
-"ALWAYS DO YOUR RESEARCH BEFORE USING RAINWATER FOR CLEANING OR CONSUMPTION! THIS PROGRAM ALSO ACCESSES YOUR DEVICE'S IP ADDRESS TO LOCATE YOUR CITY, BUT DOESN'T UPLOAD OR STORE THEM")
-
-def handle_network_issues(function):
-    def wrapper(*args, **kwargs):
-        try:
-            return function(*args, **kwargs)
-        except requests.exceptions.ConnectionError:
-            print("A connection error has occured, please check your internet connection and try again")
-            sys.exit(1)
-        except requests.exceptions.ConnectTimeout:
-            print("Connection timed out, please try again later.")
-            sys.exit(2)
-    return wrapper
 
 @handle_network_issues
 def locate_ip():
@@ -32,7 +19,7 @@ def guess_city(city_guess):
         confirmed_city = input("Please enter the city you're in(all lowercase): ")
     else:
         print("Something went wrong, please try running the program again.")
-        sys.exit(3)
+        sys.exit(1)
     return confirmed_city
 
 @handle_network_issues
@@ -47,10 +34,10 @@ def get_air_quality(confirmed_city):
             return air_quality_index
         else:
             print("Failed to fetch data due to a change in the incoming data stream, please wait for a patch from the author")
-            sys.exit(4)
+            sys.exit(2)
     else:
         print(f"Connection failed. Status code: {response.status_code}")
-        sys.exit(5)
+        sys.exit(3)
 
 @handle_network_issues
 def get_humidity(confirmed_city):
@@ -65,12 +52,11 @@ def get_humidity(confirmed_city):
             return humidity
         except ValueError:
             print("Something went wrong when getting humidity information, please try again later.")
-            sys.exit(6)
+            sys.exit(4)
     else:
         print(f"Connection failed. Status code: {response.status_code}")
         sys.exit(5)
 
-    
 # another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
 def distance_from_coast():
     pass
@@ -82,7 +68,7 @@ def get_altitude(confirmed_city):
         lat, lon = g.latlng
     except Exception as e:
         print(e)
-        sys.exit(7)
+        sys.exit(6)
 
     altitude_api = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
     response = requests.get(altitude_api)
@@ -92,7 +78,7 @@ def get_altitude(confirmed_city):
         return altitude
     else:
         print(f"Connection failed. Status code: {response.status_code}")
-        sys.exit(5)
+        sys.exit(7)
 
 
 def guess_rainwater_quality(air_quality_index): # placeholder for a coherent scoring system
@@ -109,6 +95,7 @@ def guess_rainwater_quality(air_quality_index): # placeholder for a coherent sco
     pass
 
 def main():
+    welcome_user()
     city_guess = locate_ip()
     confirmed_city = guess_city(city_guess)
     air_quality_index = get_air_quality(confirmed_city)
