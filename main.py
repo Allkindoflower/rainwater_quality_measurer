@@ -1,21 +1,24 @@
 import geocoder
 import sys
 import requests
+import math
 from welcome_message import welcome_user
 from utils import handle_network_issues
 
 
 @handle_network_issues
 def locate_ip():
+    """Locates the IP of the machine the program is running from"""
     g = geocoder.ip("me")
     city_guess = g.city
     return city_guess
 
 def guess_city(city_guess):
+    """Asks the user for their city name, the IP method isn't foolproof, this function is the fallback."""
     city_confirmation = input(f"Is this your city(y/N): {city_guess} ")
-    if city_confirmation.lower() in ("y","yes", "yessir", "yeah"):
+    if city_confirmation.lower().startswith("y"):
         confirmed_city = city_guess      
-    elif city_confirmation.lower() in ("n", "no", "nosir", "nein"):
+    elif city_confirmation.lower().startswith("n"):
         confirmed_city = input("Please enter the city you're in(all lowercase): ")
     else:
         print("Something went wrong, please try running the program again.")
@@ -24,7 +27,7 @@ def guess_city(city_guess):
 
 @handle_network_issues
 def get_air_quality(confirmed_city):
-
+    """Gets the air quality index from the API below."""
     air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
     response = requests.get(air_quality_api)
     if response.status_code == 200:
@@ -41,7 +44,7 @@ def get_air_quality(confirmed_city):
 
 @handle_network_issues
 def get_humidity(confirmed_city):
-
+    """Gets the humidity from the API below."""
     general_weather_api = f"https://wttr.in/{confirmed_city}?format=j1"
 
     response = requests.get(general_weather_api)
@@ -59,12 +62,14 @@ def get_humidity(confirmed_city):
 
 # another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
 def distance_from_coast():
+    """Calculates the distance from a coast for the given city, farther away the better."""
     pass
 
 @handle_network_issues
 def get_altitude(confirmed_city):
+    """Gets the altitude of the given city, higher up means cleaner air (up to a point)."""
     try:
-        g = geocoder.osm(confirmed_city)
+        g = geocoder.osm(confirmed_city, headers={"User-Agent": "rainwater-quality-checker"})
         lat, lon = g.latlng
     except Exception as e:
         print(e)
@@ -74,33 +79,48 @@ def get_altitude(confirmed_city):
     response = requests.get(altitude_api)
     if response.status_code == 200:
         data = response.json()
-        altitude = data["elevation"][0]
-        return altitude
+        elevation = data["elevation"][0]
+        return elevation
     else:
         print(f"Connection failed. Status code: {response.status_code}")
         sys.exit(7)
 
 
-def guess_rainwater_quality(air_quality_index): # placeholder for a coherent scoring system
-    # if 0 <= air_quality_index <= 25:
-    #     print("Safe, may be consumed after filtering and boiling.")
-    # elif 26 <= air_quality_index <= 50:
-    #     print("Reasonable, not very safe to drink, you may filter it and water your plants.")
-    # elif 50 <= air_quality_index <= 100:
-    #     print("Danger zone, consuming it even with filtering is not recommended, after careful filtering you may use it to water your plants or flush your toilet.")
-    # elif air_quality_index > 100:
-    #     print("Unsafe. Don't touch it with even a 2-meter stick.")
-    # else:
-    #     print("Something went wrong, please try again later.")
-    pass
+def calculate_rainwater_quality(air_quality_index, humidity, elevation):
+    """Calculates rainwater quality based on aqi, humidity and elevation. Each has their own weight. NOTE: The weights are guesstimates, will be improved upon on upcoming updates"""
+    if air_quality_index >= 150:
+        print(f"Air quality is too low: {air_quality_index}, please try again at a later time.")
+        sys.exit(8)
+    else:
+        aqi_score = (150 - air_quality_index) / 150
+    humidity_score = (100 - humidity) / 100
+    altitude_score = math.log(elevation + 1) / math.log(5001)
+    rainwater_quality = (aqi_score * 0.65) + (humidity_score * 0.25) + (altitude_score * 0.10)
+    rainwater_quality *= 100 
+    return rainwater_quality
+
+
+def rainwater_advice(rainwater_quality): # placeholder for a coherent scoring system
+    """Calculates the quality of the rainwater based on all the metrics above."""
+    if 100 >= rainwater_quality >= 76:
+        print("Safe, may be consumed after filtering and boiling.")
+    elif 75 >= rainwater_quality >= 51:
+        print("Reasonable, not very safe to drink, you may filter it and water your plants.")
+    elif 50 >= rainwater_quality >= 25:
+        print("Danger zone, consuming it is not recommended, after filtering you may use it to water your plants or flush your toilet.")
+    elif rainwater_quality < 25:
+        print("Unsafe. Don't touch it with even a 2-meter stick.")
+    
 
 def main():
+    """Main orchestrator function"""
     welcome_user()
     city_guess = locate_ip()
     confirmed_city = guess_city(city_guess)
     air_quality_index = get_air_quality(confirmed_city)
     humidity = get_humidity(confirmed_city)
     altitude = get_altitude(confirmed_city)
-    guess_rainwater_quality(air_quality_index, humidity, altitude) # Incomplete, need precise scoring system
+    rainwater_quality = calculate_rainwater_quality(air_quality_index, humidity, altitude)
+    rainwater_advice(rainwater_quality)
 
 main()
