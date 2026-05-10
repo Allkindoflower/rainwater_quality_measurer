@@ -2,24 +2,26 @@ import geocoder
 import sys
 import requests
 import math
-from welcome_message import welcome_user
 from utils import handle_network_issues
+# from argparse import ArgumentParser
+
+# parser = ArgumentParser() # TODO: Implement flags for the tool e.g. -manual, -help, -verbose, -multiple
 
 
 @handle_network_issues
-def locate_ip():
+def guess_city_with_ip():
     """Locates the IP of the machine the program is running from"""
     g = geocoder.ip("me")
     city_guess = g.city
     return city_guess
 
-def guess_city(city_guess):
+def ask_user_city(city_guess):
     """Asks the user for their city name, the IP method isn't foolproof, this function is the fallback."""
     city_confirmation = input(f"Is this your city(y/N): {city_guess} ")
     if city_confirmation.lower().startswith("y"):
         confirmed_city = city_guess      
     elif city_confirmation.lower().startswith("n"):
-        confirmed_city = input("Please enter the city you're in(all lowercase): ")
+        confirmed_city = input("City: ")
     else:
         print("Something went wrong, please try running the program again.")
         sys.exit(1)
@@ -36,7 +38,7 @@ def get_air_quality(confirmed_city):
             air_quality_index = data["data"]["aqi"]
             return air_quality_index
         else:
-            print("Failed to fetch data due to a change in the incoming data stream, please wait for a patch from the author")
+            print("Cannot fetch air quality, try again later")
             sys.exit(2)
     else:
         print(f"Connection failed. Status code: {response.status_code}")
@@ -68,6 +70,8 @@ def distance_from_coast():
 @handle_network_issues
 def get_altitude(confirmed_city):
     """Gets the altitude of the given city, higher up means cleaner air (up to a point)."""
+    altitude_limit = 5000 # in meters
+    max_allowed_altitude = altitude_limit - 1
     try:
         g = geocoder.osm(confirmed_city, headers={"User-Agent": "rainwater-quality-checker"})
         lat, lon = g.latlng
@@ -80,6 +84,8 @@ def get_altitude(confirmed_city):
     if response.status_code == 200:
         data = response.json()
         elevation = data["elevation"][0]
+        if elevation > altitude_limit:
+            elevation = max_allowed_altitude
         return elevation
     else:
         print(f"Connection failed. Status code: {response.status_code}")
@@ -100,27 +106,28 @@ def calculate_rainwater_quality(air_quality_index, humidity, elevation):
     return rainwater_quality
 
 
-def rainwater_advice(rainwater_quality): # placeholder for a coherent scoring system
-    """Calculates the quality of the rainwater based on all the metrics above."""
+def rainwater_advice(rainwater_quality):
+    """Gives advice based on the rainwater quality."""
     if 100 >= rainwater_quality >= 76:
         print("Safe, may be consumed after filtering and boiling.")
-    elif 75 >= rainwater_quality >= 51:
+    elif 75.99 >= rainwater_quality >= 51:
         print("Reasonable, not very safe to drink, you may filter it and water your plants.")
-    elif 50 >= rainwater_quality >= 25:
+    elif 50.99 >= rainwater_quality >= 25:
         print("Danger zone, consuming it is not recommended, after filtering you may use it to water your plants or flush your toilet.")
     elif rainwater_quality < 25:
         print("Unsafe. Don't touch it with even a 2-meter stick.")
     
 
 def main():
-    """Main orchestrator function"""
-    welcome_user()
-    city_guess = locate_ip()
-    confirmed_city = guess_city(city_guess)
+    """Main orchestrator function."""
+    city_guess = guess_city_with_ip()
+    confirmed_city = ask_user_city(city_guess)
     air_quality_index = get_air_quality(confirmed_city)
     humidity = get_humidity(confirmed_city)
     altitude = get_altitude(confirmed_city)
     rainwater_quality = calculate_rainwater_quality(air_quality_index, humidity, altitude)
+    print(rainwater_quality)
     rainwater_advice(rainwater_quality)
 
-main()
+if __name__ == "__main__":
+    main()
