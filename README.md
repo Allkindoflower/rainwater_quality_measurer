@@ -50,7 +50,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python main.py
+python rainwater.py
 ```
 
 The tool will:
@@ -63,7 +63,7 @@ The tool will:
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.8+ (the project is written in Python 3.14.4)
 - Internet connection
 - Dependencies listed in `requirements.txt`:
   - `requests`
@@ -76,7 +76,7 @@ The tool will:
 This project is actively under development. The current version fetches and displays AQI, humidity, and altitude data. The scoring system that combines these into a unified quality estimate is still being designed — contributions and domain expertise (especially from environmental scientists or statisticians) are very welcome.
 
 **Planned features:**
-- Weighted scoring system combining all factors
+- Weighted scoring system combining all factors (Partially done)
 - Distance from coast calculation
 - Precipitation history tracking
 - FastAPI backend + React frontend web version
