@@ -3,6 +3,8 @@ import sys
 import requests
 import math
 from utils import handle_network_issues
+
+
 # from argparse import ArgumentParser
 
 # parser = ArgumentParser() # TODO: Implement flags for the tool e.g. -manual, -help, -verbose, -multiple
@@ -33,20 +35,27 @@ def get_air_quality(confirmed_city):
     air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
     response = requests.get(air_quality_api)
     if response.status_code == 200:
-        data = response.json()
-        if "data" in data and "aqi" in data["data"] and isinstance(data["data"]["aqi"], int) :
-            air_quality_index = data["data"]["aqi"]
+        air_quality_data = response.json()      
+        print(air_quality_data)
+        if "data" in air_quality_data and "aqi" in air_quality_data["data"] and isinstance(air_quality_data["data"]["aqi"], int) :
+            air_quality_index = air_quality_data["data"]["aqi"]
             return air_quality_index
         else:
-            print("Cannot fetch air quality, try again later")
-            sys.exit(2)
+            if "debug" in air_quality_data and "sync" in air_quality_data["debug"]:
+                station_last_sync = air_quality_data["debug"]["sync"]
+                print("Cannot fetch air quality, possible reason below:")
+                print(f"Station last sync: {station_last_sync}")
+                sys.exit(2)
+            else:
+                print("Cannot fetch air quality, source might be corrupted")
+                sys.exit(2)
     else:
         print(f"Connection failed. Status code: {response.status_code}")
         sys.exit(3)
 
 @handle_network_issues
 def get_humidity(confirmed_city):
-    """Gets the humidity from the API below."""
+    """Gets humidity from the API below."""
     general_weather_api = f"https://wttr.in/{confirmed_city}?format=j1"
 
     response = requests.get(general_weather_api)
@@ -62,8 +71,7 @@ def get_humidity(confirmed_city):
         print(f"Connection failed. Status code: {response.status_code}")
         sys.exit(5)
 
-# another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
-def distance_from_coast():
+def distance_from_coast():  # another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
     """Calculates the distance from a coast for the given city, farther away the better."""
     pass
 
@@ -91,6 +99,8 @@ def get_altitude(confirmed_city):
         print(f"Connection failed. Status code: {response.status_code}")
         sys.exit(7)
 
+def last_flush_effect(): #TODO: calculate when it last rained in that city, rain before a long time of no rain is very dirty
+    pass
 
 def calculate_rainwater_quality(air_quality_index, humidity, elevation):
     """Calculates rainwater quality based on aqi, humidity and elevation. Each has their own weight. NOTE: The weights are guesstimates, will be improved upon on upcoming updates"""
