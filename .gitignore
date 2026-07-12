@@ -1,0 +1,84 @@
+logs.txt
+# ============================================================================
+# Python Core & Byte-compiled Files
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / Packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ============================================================================
+# Virtual Environments (Crucial to exclude)
+# ============================================================================
+# Standard virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# Poetry, Pipenv, and Anaconda
+.poetry/
+.pipenv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.conda/
+
+# ============================================================================
+# Environment Variables & Secrets (NEVER commit these)
+# ============================================================================
+.env
+.env.*
+.venv
+*.env
+secrets.json
+*.pem
+
+# ============================================================================
+# IDEs, Editors, and OS Files
+# ============================================================================
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains / PyCharm
+.idea/
+
+# Operating System specific files
+.DS_Store
+Thumbs.db
+
+# ============================================================================
+# Notebooks and Data Science
+# ============================================================================
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*

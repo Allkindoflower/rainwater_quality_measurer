@@ -3,12 +3,11 @@ import sys
 import requests
 import math
 from tenacity import retry, stop_after_attempt, wait_fixed
-from utils import handle_network_issues
 
 
 @retry(
-stop=stop_after_attempt(3)
-wait=wait_fixed(5)
+stop=stop_after_attempt(3),
+wait=wait_fixed(5),
 reraise=True
 )
 
@@ -16,7 +15,8 @@ class CityNotFound(Exception):
     """Throws when user's city is not found."""
     pass
 
-@handle_network_issues
+
+@retry
 def guess_city_with_ip():
     """Locates the IP of the machine the program is running from"""
     g = geocoder.ip("me")
@@ -35,7 +35,7 @@ def ask_user_city(city_guess):
         sys.exit(1)
     return confirmed_city
 
-@handle_network_issues
+@retry
 def get_air_quality(confirmed_city):
     """Gets the air quality index from the API below."""
     air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
@@ -52,7 +52,7 @@ def get_air_quality(confirmed_city):
         print(f"Connection failed. Code: {response.status_code}")
         sys.exit(3)
 
-@handle_network_issues
+@retry
 def get_humidity(confirmed_city):
     """Gets the humidity from the API below."""
     general_weather_api = f"https://wttr.in/{confirmed_city}?format=j1"
@@ -75,7 +75,7 @@ def distance_from_coast():
     """Calculates the distance from a coast for the given city."""
     raise NotImplementedError("Will be added on a later date: Low priority")
 
-@handle_network_issues
+@retry
 def get_altitude(confirmed_city):
     """Gets the altitude of the given city, higher up means cleaner air (up to a point)."""
     altitude_limit = 5000 # in meters
@@ -129,12 +129,8 @@ def main():
     try:
         city_guess = guess_city_with_ip()
         confirmed_city = ask_user_city(city_guess)
-    except CityNotFound:
-        print("Your city was not found, retrying...")
-        time.sleep(5)
-        city_guess = guess_city_with_ip()
-        confirmed_city = ask_user_city(city_guess)
-
+    except:
+        raise CityNotFound("City wasn't found")
     air_quality_index = get_air_quality(confirmed_city)
     humidity = get_humidity(confirmed_city)
     altitude = get_altitude(confirmed_city)
