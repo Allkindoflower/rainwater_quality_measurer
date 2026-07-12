@@ -4,8 +4,8 @@ import requests
 import math
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-
-@retry(
+#TODO: 
+retry_config = retry(
 stop=stop_after_attempt(3),
 wait=wait_fixed(5),
 reraise=True
@@ -16,7 +16,7 @@ class CityNotFound(Exception):
     pass
 
 
-@retry
+@retry_config
 def guess_city_with_ip():
     """Locates the IP of the machine the program is running from"""
     g = geocoder.ip("me")
@@ -32,10 +32,10 @@ def ask_user_city(city_guess):
         confirmed_city = input("City: ")
     else:
         print("Something went wrong, please try running the program again.")
-        sys.exit(1)
+        raise RuntimeError()
     return confirmed_city
 
-@retry
+@retry_config
 def get_air_quality(confirmed_city):
     """Gets the air quality index from the API below."""
     air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
@@ -47,12 +47,12 @@ def get_air_quality(confirmed_city):
             return air_quality_index
         else:
             print("Cannot fetch air quality, try again later")
-            sys.exit(2)
+            raise RuntimeError()
     else:
         print(f"Connection failed. Code: {response.status_code}")
-        sys.exit(3)
+        raise RuntimeError()
 
-@retry
+@retry_config
 def get_humidity(confirmed_city):
     """Gets the humidity from the API below."""
     general_weather_api = f"https://wttr.in/{confirmed_city}?format=j1"
@@ -65,28 +65,23 @@ def get_humidity(confirmed_city):
             return humidity
         except ValueError:
             print("Something went wrong when getting humidity information, please try again later.")
-            sys.exit(4)
+            raise RuntimeError()
     else:
         print(f"Connection failed. Status code: {response.status_code}")
-        sys.exit(5)
+        raise RuntimeError()
 
 # another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
 def distance_from_coast():
     """Calculates the distance from a coast for the given city."""
     raise NotImplementedError("Will be added on a later date: Low priority")
 
-@retry
+@retry_config
 def get_altitude(confirmed_city):
     """Gets the altitude of the given city, higher up means cleaner air (up to a point)."""
     altitude_limit = 5000 # in meters
     max_allowed_altitude = altitude_limit - 1
-    try:
-        g = geocoder.osm(confirmed_city, headers={"User-Agent": "rainwater-quality-checker"})
-        lat, lon = g.latlng
-    except Exception as e:
-        print(e)
-        sys.exit(6)
-
+    g = geocoder.osm(confirmed_city, headers={"User-Agent": "rainwater-quality-checker"})
+    lat, lon = g.latlng
     altitude_api = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
     response = requests.get(altitude_api)
     if response.status_code == 200:
@@ -97,13 +92,13 @@ def get_altitude(confirmed_city):
         return elevation
     else:
         print(f"Connection failed. Status code: {response.status_code}")
-        sys.exit(7)
+        raise RuntimeError("Something went wrong")
 
 def calculate_rainwater_quality(air_quality_index, humidity, elevation):
     """Calculates rainwater quality based on aqi, humidity and elevation. Each has their own weight. NOTE: The weights are guesstimates, will be improved upon on upcoming updates"""
     if air_quality_index >= 150:
         print(f"Air quality is too low: {air_quality_index}, please try again at a later time.")
-        sys.exit(8)
+        raise RuntimeError("Something went wrong")
     else:
         aqi_score = (150 - air_quality_index) / 150
     humidity_score = (100 - humidity) / 100
@@ -128,14 +123,18 @@ def main():
     """Main function."""
     try:
         city_guess = guess_city_with_ip()
-        confirmed_city = ask_user_city(city_guess)
     except:
-        raise CityNotFound("City wasn't found")
+        city_guess = None
+        
+    confirmed_city = ask_user_city(city_guess)
     air_quality_index = get_air_quality(confirmed_city)
+
     humidity = get_humidity(confirmed_city)
     altitude = get_altitude(confirmed_city)
+
     rainwater_quality = calculate_rainwater_quality(air_quality_index, humidity, altitude)
     print(f"{rainwater_quality:.3f}")
+    
     result = rainwater_advice(rainwater_quality)
     print(result)
 
