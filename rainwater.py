@@ -2,8 +2,19 @@ import geocoder
 import sys
 import requests
 import math
+from tenacity import retry, stop_after_attempt, wait_fixed
 from utils import handle_network_issues
 
+
+@retry(
+stop=stop_after_attempt(3)
+wait=wait_fixed(5)
+reraise=True
+)
+
+class CityNotFound(Exception):
+    """Throws when user's city is not found."""
+    pass
 
 @handle_network_issues
 def guess_city_with_ip():
@@ -61,8 +72,8 @@ def get_humidity(confirmed_city):
 
 # another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
 def distance_from_coast():
-    """Calculates the distance from a coast for the given city, farther away the better."""
-    pass
+    """Calculates the distance from a coast for the given city."""
+    raise NotImplementedError("Will be added on a later date: Low priority")
 
 @handle_network_issues
 def get_altitude(confirmed_city):
@@ -114,9 +125,16 @@ def rainwater_advice(rainwater_quality):
     
 
 def main():
-    """Main orchestrator function."""
-    city_guess = guess_city_with_ip()
-    confirmed_city = ask_user_city(city_guess)
+    """Main function."""
+    try:
+        city_guess = guess_city_with_ip()
+        confirmed_city = ask_user_city(city_guess)
+    except CityNotFound:
+        print("Your city was not found, retrying...")
+        time.sleep(5)
+        city_guess = guess_city_with_ip()
+        confirmed_city = ask_user_city(city_guess)
+
     air_quality_index = get_air_quality(confirmed_city)
     humidity = get_humidity(confirmed_city)
     altitude = get_altitude(confirmed_city)
@@ -124,7 +142,8 @@ def main():
     print(f"{rainwater_quality:.3f}")
     result = rainwater_advice(rainwater_quality)
     print(result)
-    with open("logs.txt", "a") as f: # should write a proper function later
+
+    with open("logs.txt", "a") as f: # needs its own function
         f.write(f"City: {confirmed_city} | {rainwater_quality:.3f}\n")
 
 if __name__ == "__main__":
