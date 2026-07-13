@@ -1,10 +1,11 @@
 import geocoder
-import sys
 import requests
 import math
+import sys
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 #TODO: 
+
 retry_config = retry(
 stop=stop_after_attempt(3),
 wait=wait_fixed(5),
@@ -15,23 +16,24 @@ class CityNotFound(Exception):
     """Throws when user's city is not found."""
     pass
 
-
 @retry_config
 def guess_city_with_ip():
     """Locates the IP of the machine the program is running from"""
     g = geocoder.ip("me")
     city_guess = g.city
+    if not city_guess:
+        raise CityNotFound()
     return city_guess
 
 def ask_user_city(city_guess):
-    """Asks the user for their city name, the IP method isn't foolproof, this function is the fallback."""
+    """Fallback function in case the IP locator fails."""
     city_confirmation = input(f"Is this your city(y/N): {city_guess} ")
     if city_confirmation.lower().startswith("y"):
         confirmed_city = city_guess      
     elif city_confirmation.lower().startswith("n"):
-        confirmed_city = input("City: ")
+        confirmed_city = input("Watch your spelling! | City: ")
     else:
-        print("Something went wrong, please try running the program again.")
+        print("Something went wrong, try running the program again.")
         raise RuntimeError()
     return confirmed_city
 
@@ -70,18 +72,22 @@ def get_humidity(confirmed_city):
         print(f"Connection failed. Status code: {response.status_code}")
         raise RuntimeError()
 
-# another function to fetch how far away from a coast the city is, sea salt spray hurts quality of rainwater
 def distance_from_coast():
     """Calculates the distance from a coast for the given city."""
     raise NotImplementedError("Will be added on a later date: Low priority")
 
 @retry_config
 def get_altitude(confirmed_city):
-    """Gets the altitude of the given city, higher up means cleaner air (up to a point)."""
-    altitude_limit = 5000 # in meters
+    """Gets the altitude of the given city."""
+    altitude_limit = 5000 # meters
     max_allowed_altitude = altitude_limit - 1
     g = geocoder.osm(confirmed_city, headers={"User-Agent": "rainwater-quality-checker"})
-    lat, lon = g.latlng
+
+    try:
+        lat, lon = g.latlng
+    except TypeError:
+        sys.exit("Could not get latitude or longitude values, please check your spelling and try running the program again") 
+
     altitude_api = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
     response = requests.get(altitude_api)
     if response.status_code == 200:
@@ -91,16 +97,12 @@ def get_altitude(confirmed_city):
             elevation = max_allowed_altitude
         return elevation
     else:
-        print(f"Connection failed. Status code: {response.status_code}")
-        raise RuntimeError("Something went wrong")
+        raise RuntimeError("Connection problem, try again later")
+        
 
 def calculate_rainwater_quality(air_quality_index, humidity, elevation):
-    """Calculates rainwater quality based on aqi, humidity and elevation. Each has their own weight. NOTE: The weights are guesstimates, will be improved upon on upcoming updates"""
-    if air_quality_index >= 150:
-        print(f"Air quality is too low: {air_quality_index}, please try again at a later time.")
-        raise RuntimeError("Something went wrong")
-    else:
-        aqi_score = (150 - air_quality_index) / 150
+    """Calculates rainwater quality based on AQI, humidity and elevation."""  
+    aqi_score = (150 - air_quality_index) / 150
     humidity_score = (100 - humidity) / 100
     altitude_score = math.log(elevation + 1) / math.log(5001)  # + 1, log 0 means infinity
     rainwater_quality = (aqi_score * 0.65) + (humidity_score * 0.25) + (altitude_score * 0.10)
@@ -123,7 +125,7 @@ def main():
     """Main function."""
     try:
         city_guess = guess_city_with_ip()
-    except:
+    except CityNotFound:
         city_guess = None
         
     confirmed_city = ask_user_city(city_guess)
