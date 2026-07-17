@@ -1,9 +1,10 @@
 ## utils.py
 
+# Outdated decorator, handled by tenacity lib
+
 # import requests
 # import sys
 
-# Outdated decorator, handled by tenacity lib
 # def handle_network_issues(function): # TODO: add retry connection
 #     def wrapper(*args, **kwargs):
 #         try:
