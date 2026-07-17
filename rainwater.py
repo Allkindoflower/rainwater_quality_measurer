@@ -2,9 +2,12 @@ import geocoder
 import requests
 import math
 import sys
+import os
+from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-#TODO: 
+load_dotenv()
+aqi_api = os.getenv("AQI_API")
 
 retry_config = retry(
 stop=stop_after_attempt(3),
@@ -12,35 +15,31 @@ wait=wait_fixed(5),
 reraise=True
 )
 
-class CityNotFound(Exception):
-    """Throws when user's city is not found."""
-    pass
-
 @retry_config
 def guess_city_with_ip():
-    """Locates the IP of the machine the program is running from"""
+    """Locates the IP of the machine the program is ran from"""
     g = geocoder.ip("me")
     city_guess = g.city
-    if not city_guess:
-        raise CityNotFound()
     return city_guess
 
+#TODO: fix while loop
 def ask_user_city(city_guess):
     """Fallback function in case the IP locator fails."""
-    city_confirmation = input(f"Is this your city(y/N): {city_guess} ")
-    if city_confirmation.lower().startswith("y"):
-        confirmed_city = city_guess      
-    elif city_confirmation.lower().startswith("n"):
-        confirmed_city = input("Watch your spelling! | City: ")
-    else:
-        print("Something went wrong, try running the program again.")
-        raise RuntimeError()
-    return confirmed_city
+    if city_guess and not city_guess == "None":
+        city_confirmation = input(f"Is this your city(y/N): {city_guess} ")
+        if city_confirmation.lower().startswith("y"):
+            return city_guess
+    while True:
+        city = input(f"Please enter your city: ")
+        if city == "" or city.isdigit():
+                print("City field cannot be empty or numerical.")
+        else:
+            return city
 
 @retry_config
 def get_air_quality(confirmed_city):
     """Gets the air quality index from the API below."""
-    air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token=be7d3d5731b7193927b8957960545285f4385a76"
+    air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token={aqi_api}"
     response = requests.get(air_quality_api)
     if response.status_code == 200:
         data = response.json()
