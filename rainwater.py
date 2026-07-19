@@ -1,10 +1,11 @@
 import geocoder
 import requests
 import math
-import sys
 import os
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_fixed
+from exceptions import IpLocationFailed
+
 
 load_dotenv()
 aqi_api = os.getenv("AQI_API")
@@ -14,7 +15,7 @@ stop=stop_after_attempt(3),
 wait=wait_fixed(5),
 reraise=True
 )
-
+    
 @retry_config
 def guess_city_with_ip():
     """Locates the IP of the machine the program is ran from"""
@@ -22,7 +23,6 @@ def guess_city_with_ip():
     city_guess = g.city
     return city_guess
 
-#TODO: fix while loop
 def ask_user_city(city_guess):
     """Fallback function in case the IP locator fails."""
     if city_guess and not city_guess == "None":
@@ -36,22 +36,24 @@ def ask_user_city(city_guess):
         else:
             return city
 
+#TODO: Add back if the AQI is too high, quit the program or just return "Unsafe"
 @retry_config
 def get_air_quality(confirmed_city):
     """Gets the air quality index from the API below."""
-    air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token={aqi_api}"
-    response = requests.get(air_quality_api)
-    if response.status_code == 200:
+    try:
+        air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token={aqi_api}"
+        response = requests.get(air_quality_api)
+        response.raise_for_status()
+
         data = response.json()
-        if "data" in data and "aqi" in data["data"] and isinstance(data["data"]["aqi"], int) :
-            air_quality_index = data["data"]["aqi"]
-            return air_quality_index
-        else:
-            print("Cannot fetch air quality, try again later")
-            raise RuntimeError()
+    except requests.exceptions.HTTPError:
+        print("Couldn't fetch air quality...")
+    if "data" in data and "aqi" in data["data"] and isinstance(data["data"]["aqi"], int) :
+        air_quality_index = data["data"]["aqi"]
+        return air_quality_index
     else:
-        print(f"Connection failed. Code: {response.status_code}")
-        raise RuntimeError()
+        print(f"Corrupted data...")
+
 
 @retry_config
 def get_humidity(confirmed_city):
@@ -59,7 +61,7 @@ def get_humidity(confirmed_city):
     general_weather_api = f"https://wttr.in/{confirmed_city}?format=j1"
 
     response = requests.get(general_weather_api)
-    if response.status_code == 200:
+    if response.ok:
         data = response.json()
         try:
             humidity = int(data["current_condition"][0]["humidity"])
@@ -85,11 +87,11 @@ def get_altitude(confirmed_city):
     try:
         lat, lon = g.latlng
     except TypeError:
-        sys.exit("Could not get latitude or longitude values, please check your spelling and try running the program again") 
+        raise TypeError("Could not get latitude or longitude values.") 
 
     altitude_api = f"https://api.open-meteo.com/v1/elevation?latitude={lat}&longitude={lon}"
     response = requests.get(altitude_api)
-    if response.status_code == 200:
+    if response.ok:
         data = response.json()
         elevation = data["elevation"][0]
         if elevation > altitude_limit:
@@ -105,38 +107,32 @@ def calculate_rainwater_quality(air_quality_index, humidity, elevation):
     humidity_score = (100 - humidity) / 100
     altitude_score = math.log(elevation + 1) / math.log(5001)  # + 1, log 0 means infinity
     rainwater_quality = (aqi_score * 0.65) + (humidity_score * 0.25) + (altitude_score * 0.10)
-    return rainwater_quality
-
-
-def rainwater_advice(rainwater_quality):
-    """Gives advice based on the rainwater quality."""
     if rainwater_quality >= 0.75:
         return "Safe"
     elif rainwater_quality >= 0.50:
         return "Reasonable"
     elif rainwater_quality >= 0.25:
-        return "Danger zone"
+        return "Danger Zone"
     elif rainwater_quality >= 0.0:
         return "Unsafe"
-    
 
 def main():
     """Main function."""
     try:
         city_guess = guess_city_with_ip()
-    except CityNotFound:
+    except IpLocationFailed:
         city_guess = None
         
     confirmed_city = ask_user_city(city_guess)
     air_quality_index = get_air_quality(confirmed_city)
 
     humidity = get_humidity(confirmed_city)
-    altitude = get_altitude(confirmed_city)
+    elevation = get_altitude(confirmed_city)
 
-    rainwater_quality = calculate_rainwater_quality(air_quality_index, humidity, altitude)
+    rainwater_quality = calculate_rainwater_quality(air_quality_index, humidity, elevation)
     print(f"{rainwater_quality:.3f}")
     
-    result = rainwater_advice(rainwater_quality)
+    result = calculate_rainwater_quality(air_quality_index, humidity, elevation)
     print(result)
 
     with open("logs.txt", "a") as f: # needs its own function
