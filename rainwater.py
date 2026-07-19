@@ -4,7 +4,7 @@ import math
 import os
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_fixed
-from exceptions import IpLocationFailed
+from exceptions import IpLocationFailed, AQITooLow
 
 
 load_dotenv()
@@ -44,15 +44,20 @@ def get_air_quality(confirmed_city):
         air_quality_api = f"http://api.waqi.info/feed/{confirmed_city}/?token={aqi_api}"
         response = requests.get(air_quality_api)
         response.raise_for_status()
-
         data = response.json()
+
     except requests.exceptions.HTTPError:
         print("Couldn't fetch air quality...")
+        raise RuntimeError()
+    
     if "data" in data and "aqi" in data["data"] and isinstance(data["data"]["aqi"], int) :
         air_quality_index = data["data"]["aqi"]
+        if air_quality_index > 200:
+            raise AQITooLow("Air quality is too low for safety, try again at a later date.")
         return air_quality_index
     else:
         print(f"Corrupted data...")
+        raise RuntimeError()
 
 
 @retry_config
