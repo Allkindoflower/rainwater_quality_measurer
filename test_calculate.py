@@ -21,6 +21,10 @@ from rainwater import calculate_rainwater_quality
     (140, 70, 150, "Unsafe"),      # Math: ~0.18
     (150, 60, 100, "Unsafe"),      # Math: ~0.16
     (160, 50, 50, "Unsafe"),       # Math: ~0.13
+
+    (170, 70, 150, "Unsafe"),      # Math: ~0.18
+    (180, 60, 100, "Unsafe"),      # Math: ~0.16
+    (190, 50, 50, "Unsafe"),       # Math: ~0.13
 ])
 def test_calculate_rainwater_quality_ranges(param1, param2, param3, expected_status):
     result = calculate_rainwater_quality(param1, param2, param3)
