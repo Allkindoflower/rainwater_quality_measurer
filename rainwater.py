@@ -36,7 +36,6 @@ def ask_user_city(city_guess):
         else:
             return city
 
-#TODO: Add back if the AQI is too high, quit the program or just return "Unsafe"
 @retry_config
 def get_air_quality(confirmed_city):
     """Gets the air quality index from the API below."""
@@ -47,8 +46,7 @@ def get_air_quality(confirmed_city):
         data = response.json()
 
     except requests.exceptions.HTTPError:
-        print("Couldn't fetch air quality...")
-        raise RuntimeError()
+        raise RuntimeError("Couldn't fetch air quality")
     
     if "data" in data and "aqi" in data["data"] and isinstance(data["data"]["aqi"], int) :
         air_quality_index = data["data"]["aqi"]
@@ -72,15 +70,14 @@ def get_humidity(confirmed_city):
             humidity = int(data["current_condition"][0]["humidity"])
             return humidity
         except ValueError:
-            print("Something went wrong when getting humidity information, please try again later.")
-            raise RuntimeError()
+            raise RuntimeError("Something went wrong when getting humidity information, please try again later.")
     else:
         print(f"Connection failed. Status code: {response.status_code}")
         raise RuntimeError()
 
-def distance_from_coast():
-    """Calculates the distance from a coast for the given city."""
-    raise NotImplementedError("Will be added on a later date: Low priority")
+# def distance_from_coast():
+#     """Calculates the distance from a coast for the given city."""
+#     raise NotImplementedError("Will be added on a later date: Low priority")
 
 @retry_config
 def get_altitude(confirmed_city):
@@ -111,7 +108,8 @@ def calculate_rainwater_quality(air_quality_index, humidity, elevation):
     aqi_score = (150 - air_quality_index) / 150
     humidity_score = (100 - humidity) / 100
     altitude_score = math.log(elevation + 1) / math.log(5001)  # + 1, log 0 means infinity
-    rainwater_quality = (aqi_score * 0.65) + (humidity_score * 0.25) + (altitude_score * 0.10)
+    rainwater_quality = max(0, (aqi_score * 0.65) + (humidity_score * 0.25) + (altitude_score * 0.10))
+    print(f"{rainwater_quality:.3f}")
     if rainwater_quality >= 0.75:
         return "Safe"
     elif rainwater_quality >= 0.50:
@@ -135,13 +133,11 @@ def main():
     elevation = get_altitude(confirmed_city)
 
     rainwater_quality = calculate_rainwater_quality(air_quality_index, humidity, elevation)
-    print(f"{rainwater_quality:.3f}")
-    
-    result = calculate_rainwater_quality(air_quality_index, humidity, elevation)
-    print(result)
+    print(rainwater_quality)
+  
 
     with open("logs.txt", "a") as f: # needs its own function
-        f.write(f"City: {confirmed_city} | {rainwater_quality:.3f}\n")
+        f.write(f"City: {confirmed_city} | {rainwater_quality}\n")
 
 if __name__ == "__main__":
     main()
